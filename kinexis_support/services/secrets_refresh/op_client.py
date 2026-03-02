@@ -51,15 +51,40 @@ def fields_to_env(item_json: dict) -> Dict[str, str]:
     """
     Convert 1Password item fields into env vars.
 
-    Uses:
-      - field['label'] as env var key
-      - field['value'] as value (stringified)
+    Two sources are supported:
+      - Notes field (id=notesPlain / purpose=NOTES): parsed as KEY=value lines,
+        one per line. Blank lines and lines starting with # are ignored.
+      - All other custom fields: field label is used as the env var key,
+        field value as the value.
 
-    Skips fields without label/value and rejects invalid env keys.
+    Skips built-in USERNAME and PASSWORD purpose fields.
+    Rejects field labels (or note keys) that are not valid env var names.
     """
+    _SKIP_PURPOSES = {"USERNAME", "PASSWORD"}
+
     env: Dict[str, str] = {}
     fields = item_json.get("fields", []) or []
     for f in fields:
+        if f.get("purpose") in _SKIP_PURPOSES:
+            continue
+
+        # Notes field: parse each line as KEY=value
+        if f.get("id") == "notesPlain" or f.get("purpose") == "NOTES":
+            for line in (f.get("value") or "").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                key = k.strip()
+                if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", key):
+                    raise RefreshSecretsError(
+                        f"Invalid env var name in notes: {key!r}"
+                    )
+                env[key] = v.strip()
+            continue
+
         label = f.get("label")
         value = f.get("value")
         if not label or value is None:
@@ -67,7 +92,7 @@ def fields_to_env(item_json: dict) -> Dict[str, str]:
         if not isinstance(label, str):
             continue
 
-            # Skip structured values
+        # Skip structured values
         if isinstance(value, (dict, list)):
             continue
 

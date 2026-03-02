@@ -6,15 +6,18 @@ authors = [
     {name = "John Tibbetts",email = "john.tibbetts@kinexis.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
-    "django (>=6.0.1,<7.0.0)",
+    "django (>=4.2)",
     "django-environ (>=0.12.0,<0.13.0)"
 ]
 
 
+[tool.poetry]
+packages = [{ include = "kinexis_support" }]
+
 [tool.poetry.dependencies]
-python = ">=3.13,<4"
+python = ">=3.11,<3.12"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

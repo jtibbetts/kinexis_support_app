@@ -7,6 +7,7 @@ from typing import Callable
 from .domain import (
     RefreshSecretsError,
     SecretsHeader,
+    apply_substitutions,
     compute_digest,
     parse_env_body,
     parse_header,
@@ -81,6 +82,7 @@ def refresh_env_file(
     fresh_env = fetch_env_from_items(op, header.vault, header.items)
 
     updated_at = now_iso_utc()
+    fresh_env = apply_substitutions(fresh_env, updated_at)
     new_digest = compute_digest(fresh_env, header.digest_alg, hmac_key)
 
     out_lines = render_updated_file(header, fresh_env, new_digest, updated_at)

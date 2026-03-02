@@ -152,6 +152,22 @@ def render_env_body(env: Dict[str, str]) -> List[str]:
     return lines  
   
   
+def apply_substitutions(env: Dict[str, str], now: str) -> Dict[str, str]:
+    """
+    Replace placeholder tokens in env values.
+    Supported placeholders:
+      {now} — replaced with the current UTC ISO timestamp (same as updated_at)
+    """
+    subs = {"{now}": now}
+    return {k: _apply(v, subs) for k, v in env.items()}
+
+
+def _apply(value: str, subs: Dict[str, str]) -> str:
+    for placeholder, replacement in subs.items():
+        value = value.replace(placeholder, replacement)
+    return value
+
+
 def render_updated_file(  
     header: SecretsHeader, env: Dict[str, str], digest_hex: str, updated_at: str  
 ) -> List[str]:  
