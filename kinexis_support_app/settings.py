@@ -122,3 +122,29 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# ------------------------------------------------------------------------------
+# Security
+# ------------------------------------------------------------------------------
+
+# Prevent browsers from MIME-sniffing a response away from the declared content-type
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Enable browser XSS filtering (legacy browsers)
+SECURE_BROWSER_XSS_FILTER = True
+
+# Deny framing from other origins (clickjacking protection)
+X_FRAME_OPTIONS = 'DENY'
+
+# Session cookie not accessible via JavaScript
+SESSION_COOKIE_HTTPONLY = True
+
+# CSRF cookie not accessible via JavaScript
+CSRF_COOKIE_HTTPONLY = True
+
+# Redirect all HTTP to HTTPS in production (safe to leave off in dev)
+SECURE_SSL_REDIRECT = False
+
+# HSTS — disabled by default; enable in production with a long max_age
+SECURE_HSTS_SECONDS = 0
