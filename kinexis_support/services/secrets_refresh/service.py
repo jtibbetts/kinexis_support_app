@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+from pathlib import Path
 from typing import Callable
 
 from .domain import (
@@ -81,8 +82,12 @@ def refresh_env_file(
 
     fresh_env = fetch_env_from_items(op, header.vault, header.items)
 
+    p = Path(path)
+    app_name = p.parent.name
+    app_env = p.name.split(".", 1)[1] if "." in p.name else ""
+
     updated_at = now_iso_utc()
-    fresh_env = apply_substitutions(fresh_env, updated_at)
+    fresh_env = apply_substitutions(fresh_env, updated_at, app_name=app_name, app_env=app_env)
     new_digest = compute_digest(fresh_env, header.digest_alg, hmac_key)
 
     out_lines = render_updated_file(header, fresh_env, new_digest, updated_at)

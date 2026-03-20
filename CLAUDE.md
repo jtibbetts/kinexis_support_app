@@ -4,36 +4,50 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+> **Note:** Use `poetry run python` (not bare `python`) — the system Python is not in the project venv.
+
 ```bash
 # Development server
-python manage.py runserver
+poetry run python manage.py runserver
 
 # Run all tests
-python manage.py test
+poetry run python manage.py test
 
 # Run tests for a specific app
-python manage.py test kinexis_support
+poetry run python manage.py test kinexis_support
+
+# Refresh all env.* files in the current directory (default behavior)
+poetry run python manage.py refresh_secrets
 
 # Refresh a single env file
-python manage.py refresh_secrets <env-file> [--verify] [--no-verify-missing]
+poetry run python manage.py refresh_secrets <env-file> [--verify] [--no-verify-missing]
 
 # Refresh all env.* files in a directory
-python manage.py refresh_secrets --all-in <directory>
+poetry run python manage.py refresh_secrets --all-in <directory>
+
+# Refresh and deploy to Dokku (skips dev envs automatically)
+poetry run python manage.py refresh_secrets --ssh ubuntu@dokku2.kinexis.com [--no-restart]
+
+# Refresh secrets via standalone CLI (default: all env.* in current directory)
+poetry run python -m kinexis_support.services.secrets_refresh.cli
 
 # Refresh secrets via standalone CLI (single file)
-python -m kinexis_support.services.secrets_refresh.cli <env-file> [--verify]
+poetry run python -m kinexis_support.services.secrets_refresh.cli <env-file> [--verify]
 
 # Refresh secrets via standalone CLI (all files in directory)
-python -m kinexis_support.services.secrets_refresh.cli --all-in <directory>
+poetry run python -m kinexis_support.services.secrets_refresh.cli --all-in <directory>
+
+# Refresh and deploy via standalone CLI
+poetry run python -m kinexis_support.services.secrets_refresh.cli --ssh ubuntu@dokku2.kinexis.com [--no-restart]
 
 # Push env vars to Dokku via SSH (single file)
-python -m kinexis_support.scripts.dokku_config_set <env-file> --ssh dokku@<host>
+poetry run python -m kinexis_support.scripts.dokku_config_set <env-file> --ssh dokku@<host>
 
 # Push all non-dev env files in a directory to Dokku
-python -m kinexis_support.scripts.dokku_config_set --all-in <directory> --ssh dokku@<host>
+poetry run python -m kinexis_support.scripts.dokku_config_set --all-in <directory> --ssh dokku@<host>
 
 # Dry run Dokku push (no changes made)
-python -m kinexis_support.scripts.dokku_config_set --all-in <directory> --ssh dokku@<host> --dry-run
+poetry run python -m kinexis_support.scripts.dokku_config_set --all-in <directory> --ssh dokku@<host> --dry-run
 
 # Install dependencies
 poetry install
@@ -90,8 +104,18 @@ Items store all env vars in the **Notes field** as `KEY=value` lines (one per li
 
 ### Value Substitutions
 
-The `{now}` placeholder in any value is replaced with the current UTC ISO timestamp at refresh time:
+Placeholders in any value are replaced at refresh time:
+
+| Placeholder | Replaced with |
+|-------------|---------------|
+| `{now}` | Current UTC ISO timestamp (same as `updated_at`) |
+| `{app_name}` | Parent directory name of the env file (e.g. `openchannel`) |
+| `{app_env}` | Filename suffix after `env.` (e.g. `dev`, `staging`, `prod`) |
+
+Example:
 ```
+APP_NAME={app_name}
+APP_ENV={app_env}
 GENERATED_AT={now}
 ```
 

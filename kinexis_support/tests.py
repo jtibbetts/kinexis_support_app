@@ -281,6 +281,31 @@ class TestApplySubstitutions(TestCase):
         apply_substitutions(env, "TS")
         self.assertEqual(env["KEY"], "{now}")
 
+    def test_app_name_replaced(self):
+        env = {"APP_NAME": "{app_name}"}
+        result = apply_substitutions(env, "TS", app_name="openchannel")
+        self.assertEqual(result["APP_NAME"], "openchannel")
+
+    def test_app_env_replaced(self):
+        env = {"APP_ENV": "{app_env}"}
+        result = apply_substitutions(env, "TS", app_env="staging")
+        self.assertEqual(result["APP_ENV"], "staging")
+
+    def test_all_three_placeholders(self):
+        env = {"META": "{app_name}:{app_env}@{now}"}
+        result = apply_substitutions(env, "2024-01-01T00:00:00Z", app_name="myapp", app_env="prod")
+        self.assertEqual(result["META"], "myapp:prod@2024-01-01T00:00:00Z")
+
+    def test_app_name_empty_by_default(self):
+        env = {"KEY": "{app_name}"}
+        result = apply_substitutions(env, "TS")
+        self.assertEqual(result["KEY"], "")
+
+    def test_app_env_empty_by_default(self):
+        env = {"KEY": "{app_env}"}
+        result = apply_substitutions(env, "TS")
+        self.assertEqual(result["KEY"], "")
+
 
 # ---------------------------------------------------------------------------
 # fields_to_env

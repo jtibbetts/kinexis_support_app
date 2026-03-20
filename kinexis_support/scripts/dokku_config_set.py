@@ -71,7 +71,7 @@ def push_env(env_file: str, ssh: str, app: str | None, no_restart: bool, dry_run
         return
 
     env_content = "".join(f"{k}={v}\n" for k, v in sorted(env.items()))
-    remote_cmd = f"dokku config:import {'--no-restart ' if no_restart else ''}{app_name}"
+    remote_cmd = f"config:import {'--no-restart ' if no_restart else ''}{app_name}"
     cmd = ["ssh", ssh, remote_cmd]
 
     proc = subprocess.run(

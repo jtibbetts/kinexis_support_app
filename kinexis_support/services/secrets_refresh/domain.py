@@ -152,13 +152,17 @@ def render_env_body(env: Dict[str, str]) -> List[str]:
     return lines  
   
   
-def apply_substitutions(env: Dict[str, str], now: str) -> Dict[str, str]:
+def apply_substitutions(
+    env: Dict[str, str], now: str, app_name: str = "", app_env: str = ""
+) -> Dict[str, str]:
     """
     Replace placeholder tokens in env values.
     Supported placeholders:
-      {now} — replaced with the current UTC ISO timestamp (same as updated_at)
+      {now}      — current UTC ISO timestamp (same as updated_at)
+      {app_name} — name of the app (parent directory of the env file)
+      {app_env}  — environment name (suffix after "env." in the filename)
     """
-    subs = {"{now}": now}
+    subs = {"{now}": now, "{app_name}": app_name, "{app_env}": app_env}
     return {k: _apply(v, subs) for k, v in env.items()}
 
 
