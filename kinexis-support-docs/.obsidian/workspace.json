@@ -83,12 +83,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "usage refresh_secrets.md",
+                "file": "refresh_secrets_generated.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "usage refresh_secrets"
+              "title": "refresh_secrets_generated"
             }
           },
           {
@@ -268,14 +268,14 @@
       "bases:Create new base": false
     }
   },
-  "active": "132b17aa565a373b",
+  "active": "ae5b05e9a1327937",
   "lastOpenFiles": [
-    "secrets header block.md",
-    "usage refresh_secrets.md",
-    "refactored.md",
-    "refresh_secrets_generated.md",
     "refresh_secrets.py specs.md",
     "kinexis-support-vault.md",
-    "Refactor implemented.md"
+    "refresh_secrets_generated.md",
+    "refactored.md",
+    "Refactor implemented.md",
+    "secrets header block.md",
+    "usage refresh_secrets.md"
   ]
 }
