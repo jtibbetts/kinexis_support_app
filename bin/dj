@@ -5,14 +5,14 @@ set -euo pipefail
 # Determine environment
 # ----------------------------------------
 
-if [[ "${1:-}" =~ ^(dev|staging|prod)$ ]]; then
+if [[ "${1:-}" =~ ^(dev|devpg|staging|prod)$ ]]; then
   ENV="$1"
   shift
 else
   ENV="${APP_ENV:-dev}"
 fi
 
-ENV_FILE="$HOME/.config/openchannel/env.${ENV}"
+ENV_FILE="$HOME/.config/kinexis_support/env.${ENV}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "❌ Environment file not found: $ENV_FILE" >&2
@@ -21,6 +21,8 @@ fi
 
 echo "▶ Using APP_ENV=${ENV}"
 echo "▶ Loaded env file: ${ENV_FILE}"
+
+export APP_ENV="${ENV}"
 
 # ----------------------------------------
 # Execute Django
