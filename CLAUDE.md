@@ -16,29 +16,15 @@ poetry run python manage.py test
 # Run tests for a specific app
 poetry run python manage.py test kinexis_support
 
-# Refresh all env.* files in the current directory (default behavior)
-poetry run python manage.py refresh_secrets
+# Render an app's env files from templates via `op inject` (1Password)
+poetry run python manage.py refresh_config <app>
 
-# Refresh a single env file
-poetry run python manage.py refresh_secrets <env-file> [--verify] [--no-verify-missing]
+# Use a service-account token (OP_SERVICE_ACCOUNT_TOKEN) instead of the
+# interactive 1Password session — for headless/CI runs
+poetry run python manage.py refresh_config <app> --service-account
 
-# Refresh all env.* files in a directory
-poetry run python manage.py refresh_secrets --all-in <directory>
-
-# Refresh and deploy to Dokku (skips dev envs automatically)
-poetry run python manage.py refresh_secrets --ssh ubuntu@dokku2.kinexis.com [--no-restart]
-
-# Refresh secrets via standalone CLI (default: all env.* in current directory)
-poetry run python -m kinexis_support.services.secrets_refresh.cli
-
-# Refresh secrets via standalone CLI (single file)
-poetry run python -m kinexis_support.services.secrets_refresh.cli <env-file> [--verify]
-
-# Refresh secrets via standalone CLI (all files in directory)
-poetry run python -m kinexis_support.services.secrets_refresh.cli --all-in <directory>
-
-# Refresh and deploy via standalone CLI
-poetry run python -m kinexis_support.services.secrets_refresh.cli --ssh ubuntu@dokku2.kinexis.com [--no-restart]
+# Override the config root (default ~/.config) — useful for testing
+poetry run python manage.py refresh_config <app> --config-root <directory>
 
 # Push env vars to Dokku via SSH (single file)
 poetry run python -m kinexis_support.scripts.dokku_config_set <env-file> --ssh dokku@<host>
@@ -55,84 +41,61 @@ poetry install
 
 ## Architecture
 
-This is a **Django app** (Python 3.11+, Poetry) built around a single core feature: **secrets refresh** — pulling env vars from 1Password and writing them into self-describing `.env` files with integrity digests. These files are loaded by `direnv` in development to simulate the production/staging environment.
+This is a **Django app** (Python 3.11+, Poetry) built around a single core feature: **config refresh** — rendering self-describing `.env` files from templates that hold 1Password secret references, using `op inject`. These files are loaded by `direnv` in development to simulate the production/staging environment.
 
 ### Env File Locations
 
-Env files live at `~/.config/<project>/env.<environment>`:
+Each app has a config directory under `~/.config/`. Templates live in a `templates/` subdir; rendered output is written to the app dir (the parent of `templates/`):
+
+```
+~/.config/<app>/
+├── templates/
+│   ├── env.dev          # template with {{ op://... }} references
+│   ├── env.staging
+│   └── env.prod
+├── env.dev              # rendered output (op inject)
+├── env.staging
+└── env.prod
+```
 
 | File | Dokku app |
 |------|-----------|
-| `~/.config/<project>/env.dev` | dev only — not pushed to Dokku |
-| `~/.config/<project>/env.staging` | `<project>-staging` |
-| `~/.config/<project>/env.prod` | `<project>` |
+| `~/.config/<app>/env.dev` | dev only — not pushed to Dokku |
+| `~/.config/<app>/env.staging` | `<app>-staging` |
+| `~/.config/<app>/env.prod` | `<app>` |
 
-### Core Feature: `secrets_refresh` Service
+### Core Feature: `refresh_config`
 
-Located in `kinexis_support/services/secrets_refresh/`, organized in strict layers:
+Management command: `kinexis_support/management/commands/refresh_config.py`.
 
-| File | Layer | Role |
-|------|-------|------|
-| `domain.py` | Domain | Pure logic — no I/O. Parsing, digest computation, rendering, substitutions. |
-| `op_client.py` | Adapter | Wraps the `op` CLI (1Password). Parses notes field as `KEY=value` lines. |
-| `fileio.py` | Adapter | File I/O — creates missing directories and skeleton files on first run. |
-| `service.py` | Orchestration | `refresh_env_file()` coordinates all layers. Injects deps for testability. |
-| `cli.py` | Entrypoint | Standalone argparse CLI. |
+- Takes one positional argument: the target **app**.
+- Valid apps are discovered **on the fly**: subdirectories of `~/.config` that contain a `templates/` subdir.
+- Renders every `env.*` file in `~/.config/<app>/templates/` through `op inject` and writes each rendered file (same name) to `~/.config/<app>/`.
+- By default it **strips `OP_SERVICE_ACCOUNT_TOKEN`** from the `op inject` subprocess so rendering runs as the user's full-access 1Password session. This avoids a deadlock when `direnv` has loaded a restricted service-account token that can't see the referenced vaults. `--service-account` opts back in for headless/CI.
+- `--config-root` overrides the `~/.config` root.
 
-The same service is also exposed as a Django management command: `kinexis_support/management/commands/refresh_secrets.py`.
+### Template Format
 
-### Self-Describing `.env` File Format
+Templates are plain `KEY=value` files; secret values use 1Password secret references resolved by `op inject`:
 
 ```
-# @secrets:
-#   vault: RUTA IT
-#   items: app:dev, db:sqlite, svc:ai
-#   digest_alg: hmac-sha256
-#   digest: <hex>
-#   updated_at: 2024-01-15T12:00:00Z
-# @endsecrets
-
-KEY=value
-OTHER_KEY=value
+APP_ENV=dev
+DATABASE_URL=postgresql://user:{{ op://Crypta/postgresql-password/notesPlain }}@host/db
+SECRET_KEY={{ op://Crypta/dev-secret-key/credential }}
 ```
 
-The digest is computed over a **canonicalized sorted `KEY=value\n`** representation of the env body.
+A reference is `op://<vault>/<item-name-or-uuid>/<field>`. The vault segment is optional when the item is identified by UUID.
 
-### 1Password Item Format
+### `secrets_refresh` Helpers (retained)
 
-Items store all env vars in the **Notes field** as `KEY=value` lines (one per line). Blank lines and `#` comments are ignored. The `op` CLI built-in fields (`notesPlain`, `username`, `password`) are skipped automatically.
+`kinexis_support/services/secrets_refresh/` previously held a digest-based refresh service. That service and its CLI/command were removed in favor of `refresh_config`. Two pure-logic modules remain because `dokku_config_set` still uses them:
 
-### Value Substitutions
-
-Placeholders in any value are replaced at refresh time:
-
-| Placeholder | Replaced with |
-|-------------|---------------|
-| `{now}` | Current UTC ISO timestamp (same as `updated_at`) |
-| `{app_name}` | Parent directory name of the env file (e.g. `openchannel`) |
-| `{app_env}` | Filename suffix after `env.` (e.g. `dev`, `staging`, `prod`) |
-
-Example:
-```
-APP_NAME={app_name}
-APP_ENV={app_env}
-GENERATED_AT={now}
-```
-
-### Required Environment Variable
-
-- `REFRESH_SECRETS_HMAC_KEY` — required when `digest_alg` is `hmac-sha256` (the default). Set globally in shell config.
-
-### Testability Pattern
-
-All layers use dependency injection. To test without real 1Password access, inject a mock `OpRunner` into `OpClient`, or inject a mock `OpClient` directly into `refresh_env_file()`. The `domain.py` functions are pure and require no mocking.
-
-### `--verify` Flag Behavior
-
-- `--verify`: Recomputes digest over current file contents and compares to stored digest. Refuses to refresh on mismatch.
-- `--no-verify-missing`: When used with `--verify`, allows refresh even if no digest is present in the header.
+| File | Role |
+|------|------|
+| `domain.py` | Pure logic — parsing the self-describing `# @secrets:` header and env body, digest helpers, `RefreshSecretsError`. No I/O. |
+| `fileio.py` | File I/O helpers (`read_lines`, etc.). |
 
 ### Other Utilities
 
 - `kinexis_support/scripts/dokku_env_export.py` — exports Dokku app config vars to `.env` files (supports SSH to remote hosts).
-- `kinexis_support/scripts/dokku_config_set.py` — pushes env vars from a managed env file to a Dokku app via `config:import` over SSH.
+- `kinexis_support/scripts/dokku_config_set.py` — pushes env vars from a managed env file to a Dokku app via `config:import` over SSH. Also exposed as the `dokku_config_set` management command.
