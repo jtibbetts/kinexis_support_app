@@ -6,6 +6,7 @@ from kinexis_support.services.secrets_refresh.domain import (
     apply_substitutions,
     canonical_env_text,
     compute_digest,
+    parse_dotenv,
     parse_env_body,
     parse_header,
     render_env_body,
@@ -150,6 +151,33 @@ class TestParseEnvBody(TestCase):
         env = parse_env_body(lines, end)
         self.assertNotIn("INVALID", env)
         self.assertIn("KEY", env)
+
+
+# ---------------------------------------------------------------------------
+# parse_dotenv (plain KEY=value files, e.g. op inject output)
+# ---------------------------------------------------------------------------
+
+class TestParseDotenv(TestCase):
+
+    def test_plain_key_values_no_header(self):
+        env = parse_dotenv(["A=1\n", "B=2\n"])
+        self.assertEqual(env, {"A": "1", "B": "2"})
+
+    def test_skips_blank_lines_and_comments(self):
+        env = parse_dotenv(["\n", "# comment\n", "A=1\n"])
+        self.assertEqual(list(env.keys()), ["A"])
+
+    def test_skips_lines_without_equals(self):
+        env = parse_dotenv(["INVALID\n", "KEY=value\n"])
+        self.assertNotIn("INVALID", env)
+        self.assertEqual(env["KEY"], "value")
+
+    def test_value_with_equals_sign(self):
+        env = parse_dotenv(["URL=postgres://user:pass@host/db?ssl=true\n"])
+        self.assertEqual(env["URL"], "postgres://user:pass@host/db?ssl=true")
+
+    def test_empty_input(self):
+        self.assertEqual(parse_dotenv([]), {})
 
 
 # ---------------------------------------------------------------------------

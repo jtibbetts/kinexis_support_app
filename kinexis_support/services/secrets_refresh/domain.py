@@ -83,21 +83,27 @@ def parse_header(lines: List[str]) -> Tuple[SecretsHeader, int, int]:
     )  
   
   
-def parse_env_body(lines: List[str], header_end_idx: int) -> Dict[str, str]:  
-    """  
-    Parse KEY=VALUE lines after the header. Ignores blank lines, comments, and invalid lines.  
-    Values are preserved as raw strings (no unquoting).  
-    """  
-    env: Dict[str, str] = {}  
-    for raw in lines[header_end_idx + 1 :]:  
-        line = raw.strip()  
-        if not line or line.startswith("#"):  
-            continue  
-        if "=" not in line:  
-            continue  
-        k, v = line.split("=", 1)  
-        env[k.strip()] = v  
-    return env  
+def parse_dotenv(lines: List[str]) -> Dict[str, str]:
+    """
+    Parse plain KEY=VALUE lines (e.g. a file produced by `op inject`, which has
+    no self-describing header). Blank lines, comments, and lines without '=' are
+    ignored. Values are preserved as raw strings (no unquoting).
+    """
+    env: Dict[str, str] = {}
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        env[k.strip()] = v
+    return env
+
+
+def parse_env_body(lines: List[str], header_end_idx: int) -> Dict[str, str]:
+    """KEY=VALUE lines after a self-describing header; wraps parse_dotenv."""
+    return parse_dotenv(lines[header_end_idx + 1 :])
   
   
 def canonical_env_text(env: Dict[str, str]) -> str:  

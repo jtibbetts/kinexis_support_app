@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Push env vars from a managed env file to a Dokku app via SSH.
+Push env vars from a rendered env file to a Dokku app via SSH.
 
-Uses `dokku config:import` via stdin to avoid shell-quoting issues
-with special characters in values.
+Reads plain KEY=value files (e.g. produced by `op inject` / refresh_config;
+no self-describing header required). Uses `dokku config:import` via stdin to
+avoid shell-quoting issues with special characters in values.
 
 App name is derived from the env file path:
   ~/.config/openchannel/env.prod    -> openchannel
@@ -27,8 +28,7 @@ from pathlib import Path
 
 from kinexis_support.services.secrets_refresh.domain import (
     RefreshSecretsError,
-    parse_env_body,
-    parse_header,
+    parse_dotenv,
 )
 from kinexis_support.services.secrets_refresh.fileio import read_lines
 
@@ -60,9 +60,7 @@ def derive_app_name(path: Path) -> str:
 
 def push_env(env_file: str, ssh: str, app: str | None, no_restart: bool, dry_run: bool) -> None:
     path = Path(env_file).expanduser().resolve()
-    lines = read_lines(str(path))
-    _, _start, end_idx = parse_header(lines)
-    env = parse_env_body(lines, end_idx)
+    env = parse_dotenv(read_lines(str(path)))
 
     app_name = app or derive_app_name(path)
 
